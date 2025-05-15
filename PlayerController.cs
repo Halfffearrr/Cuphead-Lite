@@ -1,8 +1,21 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
+    public Health health;
+    // Audio clips for sound effects
+    public AudioClip jumpClip;
+    public AudioClip landClip;
+    public AudioClip shootClip;
+    public AudioClip superClip;
+    public AudioClip dashClip;
+    public AudioClip deathClip;
+    private bool canUseSuperBullet = true;
+    private bool infiniteSuperMode = false;
+    private int normalBulletDamage = 1;
+    private int superBulletDamage = 100;
     public Rigidbody2D rb;
     public Animator animator;
     public AudioSource audioSource;
@@ -24,12 +37,12 @@ public class PlayerController : MonoBehaviour
     private int maxPoints;
     private int points;
 
-public bool facingRight = true;
+    public bool facingRight = true;
     public bool isGrounded = false;
     public bool isDucking = false;
-    public bool canFire = true; 
-    public bool shotFiredThisPress = false; 
-    public bool isPoweredUp = false; 
+    public bool canFire = true;
+    public bool shotFiredThisPress = false;
+    public bool isPoweredUp = false;
     public float powerUpDuration = 5f;
     public bool isAimLocked = false;
 
@@ -51,6 +64,9 @@ public bool facingRight = true;
     public Transform groundCheck;
 
     private string currentAimTrigger = "";
+
+    private bool isDead = false;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -67,32 +83,48 @@ public bool facingRight = true;
         if (firePoint != null)
             defaultFirePointPos = firePoint.localPosition;
 
-        Health health = GetComponent<Health>();
+        health = GetComponent<Health>();
         if (health == null)
         {
             health = gameObject.AddComponent<Health>();
             health.healthCollider2D = playerCollider2D;
-            health.health = 3;
-            health.invulnerabilityTime = 6f;
+            health.health = 1;
+            health.invulnerabilityTime = 2f;
         }
     }
 
     private bool isDashing = false;
     private Coroutine dashCoroutine = null;
+
     private void Update()
     {
+        // 死亡检测和动画
+        if (health != null && health.health <= 0 && !isDead)
+        {
+            isDead = true;
+            animator.SetTrigger("Die");
+            if (deathClip != null && audioSource != null)
+                audioSource.PlayOneShot(deathClip);
+            StartCoroutine(HandleDeath());
+            return;
+        }
+
         isGrounded = CheckGrounded();
         animator.SetBool("isGrounded", isGrounded);
         stateMachine.Update();
 
-        // Dash
+        if (Input.GetKey(KeyCode.C) && Input.GetKeyDown(KeyCode.Y))
+        {
+            Debug.Log("启动");
+            EnableInfiniteSuper();
+        }
+
         if (Input.GetKeyDown(KeyCode.H) && !isDashing)
         {
             if (dashCoroutine != null) StopCoroutine(dashCoroutine);
             dashCoroutine = StartCoroutine(Dash());
         }
 
-        // Aim lock logic
         if (Input.GetKeyDown(KeyCode.Space))
         {
             isAimLocked = true;
@@ -106,12 +138,10 @@ public bool facingRight = true;
                 firePoint.localPosition = defaultFirePointPos;
         }
 
-        // 方向动画和firePoint逻辑
         if (isAimLocked)
         {
             UpdateAimAnimationAndFirePoint();
 
-            // 允许左右切换朝向
             float moveInput = Input.GetAxisRaw("Horizontal");
             if (moveInput > 0 && !facingRight)
             {
@@ -122,7 +152,6 @@ public bool facingRight = true;
                 Flip();
             }
 
-            // 锁定模式下，禁止跳跃/下蹲/dash/移动
             rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
             animator.SetFloat("Speed", 0);
             isDucking = false;
@@ -130,7 +159,6 @@ public bool facingRight = true;
         }
         else
         {
-            // 不在锁定模式下
             if (!Input.GetKey(KeyCode.Space))
             {
                 if (Input.GetKeyDown(KeyCode.S))
@@ -149,7 +177,6 @@ public bool facingRight = true;
             }
             else
             {
-                // Space被按住时，禁止下蹲、移动、跳跃
                 isDucking = false;
                 animator.SetBool("isDucking", false);
                 animator.SetFloat("Speed", 0);
@@ -157,7 +184,6 @@ public bool facingRight = true;
             }
         }
 
-        // Shoot logic
         if (Input.GetKeyDown(KeyCode.J))
         {
             if (isAimLocked)
@@ -185,34 +211,42 @@ public bool facingRight = true;
         {
             PowerUp();
         }
-        if (Input.GetKeyDown(KeyCode.L))
+        if (Input.GetKeyDown(KeyCode.L) && isPoweredUp)
         {
-            animator.SetTrigger("super");
             ShootSuperBullet();
         }
     }
-    // Updates aim animation and firePoint position based on aiming direction (5-way: straight, up, down, diagonal up, diagonal down)
+
+    private void EnableInfiniteSuper()
+    {
+        canUseSuperBullet = true;
+        isPoweredUp = true;
+        infiniteSuperMode = true;
+        Debug.Log("Super bullets are now infinite! Can fire: " + canFire);
+    }
+
     private IEnumerator Dash()
-{
-    isDashing = true;
-    animator.SetTrigger("dash");
+    {
+        if (dashClip != null) audioSource.PlayOneShot(dashClip);
+        isDashing = true;
+        animator.SetTrigger("dash");
 
-    float dashDuration = 0.2f;
-    float dashDistance = 3.5f;
-    float dashSpeed = dashDistance / dashDuration;
+        float dashDuration = 0.2f;
+        float dashDistance = 3.5f;
+        float dashSpeed = dashDistance / dashDuration;
 
-    float originalGravity = rb.gravityScale;
-    rb.gravityScale = 0;
+        float originalGravity = rb.gravityScale;
+        rb.gravityScale = 0;
 
-    Vector2 dashVelocity = new Vector2(facingRight ? dashSpeed : -dashSpeed, 0);
-    rb.linearVelocity = dashVelocity;
+        Vector2 dashVelocity = new Vector2(facingRight ? dashSpeed : -dashSpeed, 0);
+        rb.linearVelocity = dashVelocity;
 
-    yield return new WaitForSeconds(dashDuration);
+        yield return new WaitForSeconds(dashDuration);
 
-    rb.gravityScale = originalGravity;
-    isDashing = false;
-}
-    // 重置所有方向动画参数
+        rb.gravityScale = originalGravity;
+        isDashing = false;
+    }
+
     private void ResetAllAimBools()
     {
         animator.SetBool("Straight", false);
@@ -222,25 +256,18 @@ public bool facingRight = true;
         animator.SetBool("DiagonalDown", false);
     }
 
-    // 支持多方向长按检测和动画控制的 UpdateAimAnimationAndFirePoint
     private void UpdateAimAnimationAndFirePoint()
     {
-        // 检测各方向长按
         bool holdA = Input.GetKey(KeyCode.A);
         bool holdD = Input.GetKey(KeyCode.D);
         bool holdW = Input.GetKey(KeyCode.W);
         bool holdS = Input.GetKey(KeyCode.S);
-        // 斜上：W+D 或 W+A，斜下：S+D 或 S+A
         bool holdDiagonalUp = holdW && (holdD || holdA);
         bool holdDiagonalDown = holdS && (holdD || holdA);
-        // 仅上（非斜上）
         bool holdUp = holdW && !holdDiagonalUp;
-        // 仅下（非斜下）
         bool holdDown = holdS && !holdDiagonalDown;
-        // 仅直线（A 或 D, 非斜上/斜下/上/下）
         bool holdStraight = (holdD || holdA) && !holdDiagonalUp && !holdDiagonalDown && !holdUp && !holdDown;
 
-        // 优化动画参数，只激活一个方向
         ResetAllAimBools();
         if (holdDiagonalUp)
             animator.SetBool("DiagonalUp", true);
@@ -253,7 +280,6 @@ public bool facingRight = true;
         else if (holdStraight)
             animator.SetBool("Straight", true);
 
-        // firePoint 偏移
         if (firePoint != null)
         {
             if (isAimLocked)
@@ -269,7 +295,6 @@ public bool facingRight = true;
                     offset = new Vector3(0f, -0.5f, 0f);
                 else if (holdStraight)
                     offset = new Vector3(0f, 0f, 0f);
-                // 其他未按方向，offset保持zero
                 if (!facingRight)
                 {
                     offset.x = -offset.x;
@@ -282,15 +307,15 @@ public bool facingRight = true;
             }
         }
     }
-    // Fire a bullet in a specific direction, with firePoint offset
+
     public void FireBulletInDirection(Vector2 direction)
     {
         if (canFire && firePoint != null && bulletPrefab != null)
         {
+            if (shootClip != null) audioSource.PlayOneShot(shootClip);
             canFire = false;
             Invoke(nameof(ResetFire), fireRate);
 
-            // Offset fire point is already set by UpdateAimAnimationAndFirePoint
             Vector3 spawnPos = firePoint.position;
             GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
             Rigidbody2D bulletRb = bullet.GetComponent<Rigidbody2D>();
@@ -315,17 +340,20 @@ public bool facingRight = true;
                 Destroy(fireDust, 0.2f);
             }
             bullet.tag = "PlayerBullet";
+            Bullet bulletScript = bullet.GetComponent<Bullet>();
+            if (bulletScript != null)
+            {
+                bulletScript.damage = normalBulletDamage;
+            }
             Destroy(bullet, bulletLife);
         }
     }
 
-    // 基于Y轴位置判断是否接触地面
     private bool CheckGrounded()
     {
         return playerTransform.position.y <= -5.78f;
     }
 
-    // 可视化groundCheck检测点
     private void OnDrawGizmosSelected()
     {
         if (groundCheck != null)
@@ -381,6 +409,7 @@ public bool facingRight = true;
         if (isGrounded)
         {
             rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+            if (jumpClip != null) audioSource.PlayOneShot(jumpClip);
             isGrounded = false;
             animator.SetTrigger("jump");
             stateMachine.ChangeState(jumpState);
@@ -389,10 +418,10 @@ public bool facingRight = true;
 
     public void FireBullet()
     {
-        // 使用 duckShootPoint 发射下蹲子弹和 dust
         Transform shootPoint = isDucking && duckShootPoint != null ? duckShootPoint : firePoint;
         if (canFire && shootPoint != null && bulletPrefab != null)
         {
+            if (shootClip != null) audioSource.PlayOneShot(shootClip);
             canFire = false;
             Invoke(nameof(ResetFire), fireRate);
 
@@ -421,18 +450,25 @@ public bool facingRight = true;
                 Destroy(fireDust, 0.2f);
             }
             bullet.tag = "PlayerBullet";
+            Bullet bulletScript = bullet.GetComponent<Bullet>();
+            if (bulletScript != null)
+            {
+                bulletScript.damage = normalBulletDamage;
+            }
             Destroy(bullet, bulletLife);
         }
     }
 
     public void ShootSuperBullet()
     {
-        if (canFire && firePoint != null && superBulletPrefab != null)
+        if (canFire && (isPoweredUp || infiniteSuperMode) && firePoint != null && superBulletPrefab != null)
         {
-            canFire = false;
-            Invoke(nameof(ResetFire), fireRate);
+            if (superClip != null) audioSource.PlayOneShot(superClip);
+            animator.SetTrigger("super");
 
-            // 播放 super 动画已在 Update() 中处理
+            canFire = false;
+            if (!infiniteSuperMode) isPoweredUp = false;
+            Invoke(nameof(ResetFire), fireRate);
 
             float direction = Mathf.Sign(transform.localScale.x);
             Vector2 fireDir = new Vector2(direction, 0);
@@ -442,9 +478,7 @@ public bool facingRight = true;
             bulletRb.linearVelocity = fireDir.normalized * superBulletSpeed;
 
             bullet.transform.localScale = new Vector3(direction, 1, 1);
-
-            float angle = Mathf.Atan2(fireDir.y, fireDir.x) * Mathf.Rad2Deg;
-            bullet.transform.rotation = Quaternion.Euler(0, 0, angle);
+            bullet.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(fireDir.y, fireDir.x) * Mathf.Rad2Deg);
 
             SpriteRenderer sr = bullet.GetComponent<SpriteRenderer>();
             if (sr != null)
@@ -453,9 +487,15 @@ public bool facingRight = true;
             }
 
             bullet.tag = "PlayerBullet";
+
+            Bullet bulletScript = bullet.GetComponent<Bullet>();
+            if (bulletScript != null)
+            {
+                bulletScript.damage = superBulletDamage;
+            }
+
             Destroy(bullet, bulletLife);
 
-            // 使用 superFireDust 特效
             if (superFireDustPrefab != null && firePoint != null)
             {
                 GameObject fireDust = Instantiate(superFireDustPrefab, firePoint.position, Quaternion.identity);
@@ -464,11 +504,14 @@ public bool facingRight = true;
                 Destroy(fireDust, 0.6f);
             }
         }
+        else
+        {
+            Debug.Log("Cannot shoot Super Bullet, conditions not met.");
+        }
     }
 
     private Vector2 GetShootDirection()
     {
-        // Recognize aiming direction for 8-way shooting
         bool up = Input.GetKey(KeyCode.W);
         bool down = Input.GetKey(KeyCode.S);
         bool left = Input.GetKey(KeyCode.A);
@@ -487,21 +530,32 @@ public bool facingRight = true;
 
     private void PowerUp()
     {
-        if (!isPoweredUp)
+        if (!isPoweredUp && canUseSuperBullet)
         {
             isPoweredUp = true;
+            canUseSuperBullet = false;
             bulletSpeed *= 1.5f;
-            Invoke(nameof(ResetPowerUp), powerUpDuration);
             animator.SetTrigger("powerUp");
             Debug.Log("PowerUp activated!");
+
+            StartCoroutine(ResetPowerUpAfterDelay(powerUpDuration));
+            StartCoroutine(ResetSuperBulletCooldown(5f));
         }
     }
 
-    private void ResetPowerUp()
+    private IEnumerator ResetPowerUpAfterDelay(float duration)
     {
+        yield return new WaitForSeconds(duration);
         isPoweredUp = false;
         bulletSpeed /= 1.5f;
         Debug.Log("PowerUp ended.");
+    }
+
+    private IEnumerator ResetSuperBulletCooldown(float cooldown)
+    {
+        yield return new WaitForSeconds(cooldown);
+        canUseSuperBullet = true;
+        Debug.Log("SuperBullet ready again.");
     }
 
     private void ResetFire()
@@ -517,22 +571,26 @@ public bool facingRight = true;
         }
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    // Play landing sound when colliding with ground
+    private void OnCollisionEnter2D(Collision2D other)
     {
-        if (other.CompareTag("EnemyBullet"))
+        if (other.gameObject.layer == LayerMask.NameToLayer("Ground"))
         {
-            Health health = GetComponent<Health>();
-            if (health != null)
-            {
-                health.takeDamage();
-            }
-            Destroy(other.gameObject);
+            isGrounded = true;
+            if (landClip != null) audioSource.PlayOneShot(landClip);
         }
     }
 
     public void Shoot()
     {
         FireBullet();
+    }
+
+    private IEnumerator HandleDeath()
+    {
+        yield return new WaitForSeconds(3f); // 等待死亡动画和音效播放完成
+        Destroy(gameObject);
+        SceneManager.LoadScene("MainMenu");
     }
 }
 
@@ -653,4 +711,5 @@ public class PlayerJumpState : PlayerState
             Object.Destroy(jumpSmoke, 1f);
         }
     }
+    
 }

@@ -225,6 +225,7 @@ GameObject:
   - component: {fileID: 503022065821161084}
   - component: {fileID: 7256237494098700004}
   - component: {fileID: 2271438327850334053}
+  - component: {fileID: 1237929022536234192}
   m_Layer: 0
   m_Name: player
   m_TagString: Untagged
@@ -407,6 +408,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   audioSource: {fileID: 0}
   playerCollider2D: {fileID: 0}
+  playerTransform: {fileID: 0}
   speed: 8
   jumpForce: 10
   bulletSpeed: 10
@@ -422,18 +424,21 @@ MonoBehaviour:
   shotFiredThisPress: 0
   isPoweredUp: 0
   powerUpDuration: 5
-  duckTime: 0
+  isAimLocked: 0
+  duckShootPoint: {fileID: 0}
   inDuckIdle: 0
   firePoint: {fileID: 0}
   bulletPrefab: {fileID: 0}
   superBulletPrefab: {fileID: 0}
   fireDustPrefab: {fileID: 0}
+  superFireDustPrefab: {fileID: 0}
   jumpSmokePrefab: {fileID: 0}
   groundLayer:
     serializedVersion: 2
     m_Bits: 0
   groundCheckSize: {x: 0.5, y: 0.1}
   groundCheckPoint: {fileID: 0}
+  groundCheck: {fileID: 0}
 --- !u!114 &7256237494098700004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -450,6 +455,7 @@ MonoBehaviour:
   animator: {fileID: 0}
   audioSource: {fileID: 0}
   playerCollider2D: {fileID: 0}
+  playerTransform: {fileID: 0}
   speed: 8
   jumpForce: 10
   bulletSpeed: 10
@@ -465,18 +471,21 @@ MonoBehaviour:
   shotFiredThisPress: 0
   isPoweredUp: 0
   powerUpDuration: 5
-  duckTime: 0
+  isAimLocked: 0
+  duckShootPoint: {fileID: 0}
   inDuckIdle: 0
   firePoint: {fileID: 1679975269139064779}
   bulletPrefab: {fileID: 2233979883524111124, guid: 0f9cf86e2494e48978737bd253f3e672, type: 3}
   superBulletPrefab: {fileID: 788742998828005276, guid: 3513452bb499944c183662eab53deb60, type: 3}
   fireDustPrefab: {fileID: 5876660866482725312, guid: 77e9deb83b7be4cfb8143ca6c88c7585, type: 3}
+  superFireDustPrefab: {fileID: 0}
   jumpSmokePrefab: {fileID: 3174065215151492138, guid: 629ee0afa706849c0afac149729bd785, type: 3}
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
   groundCheckSize: {x: 0.5, y: 0.1}
   groundCheckPoint: {fileID: 0}
+  groundCheck: {fileID: 0}
 --- !u!82 &2271438327850334053
 AudioSource:
   m_ObjectHideFlags: 0
@@ -574,3 +583,18 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1237929022536234192
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5966112900435934790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f1d7ef64e49f4683a94d3acb55c5d1c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHealth: 5
+  flashDuration: 0.1
+  healthUI: {fileID: 0}
